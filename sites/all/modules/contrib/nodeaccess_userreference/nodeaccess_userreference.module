@@ -1,0 +1,239 @@
+<?php
+// $Id: nodeaccess_userreference.module,v 1.1.2.6.2.11.2.7.2.5 2011/01/31 12:33:44 danielb Exp $
+
+/**
+ * @file
+ * The Node access user reference module.
+ */
+
+/**
+ * Implements hook_node_grants().
+ */
+function nodeaccess_userreference_node_grants($account, $op) {
+  $grants = array();
+  $grants['nodeaccess_userreference'][] = $account->uid;
+  $grants['nodeaccess_userreference_author'][] = $account->uid;
+  $grants['nodeaccess_userreference_all'][] = 1;
+  return $grants;
+}
+
+/**
+ * Implements hook_form-FORM-ID_alter().
+ */
+function nodeaccess_userreference_form_field_ui_field_edit_form_alter(&$form, $form_state) {
+  if ($form['#field']['type'] == 'user_reference' && $form['#instance']['entity_type'] == 'node') {
+    $data = nodeaccess_userreference_field_settings($form['#instance']['bundle'], $form['#field']['field_name']);
+    $form['field']['settings']['nodeaccess_userreference'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Node access user reference'),
+    );
+    $form['field']['settings']['nodeaccess_userreference']['referenced'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Grants for referenced users'),
+      '#default_value' => isset($data['referenced']) ? $data['referenced'] : array('view'),
+      '#options' => array(
+        'view' => t('View'),
+        'update' => t('Update'),
+        'delete' => t('Delete'),
+      ),
+      '#description' => t('These content access permissions will be granted to users referenced in the field.'),
+    );
+    $form['field']['settings']['nodeaccess_userreference']['author'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Grants for author'),
+      '#default_value' => isset($data['author']) ? $data['author'] : array('view', 'update', 'delete'),
+      '#options' => array(
+        'view' => t('View'),
+        'update' => t('Update'),
+        'delete' => t('Delete'),
+      ),
+      '#description' => t('These content access permissions will be granted to the authors of nodes affected by grants given to referenced users.'),
+    );
+    $form['field']['settings']['nodeaccess_userreference']['all'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Grants for all users'),
+      '#default_value' => isset($data['all']) ? $data['all'] : array('view'),
+      '#options' => array(
+        'view' => t('View'),
+      ),
+      '#description' => t('These content access permissions will be granted to all users for nodes affected by grants given to referenced users.'),
+    );
+    $form['field']['settings']['nodeaccess_userreference']['priority'] = array(
+      '#type' => 'weight',
+      '#title' => t('Priority'),
+      '#default_value' => isset($data['priority']) ? $data['priority'] : 0,
+      '#description' => t('It is recommended to always leave this set to 0.'),
+    );
+    $form['#submit'][] = 'nodeaccess_userreference_form_field_ui_field_edit_form_submit';
+  }
+}
+
+/**
+ * Extra submit function for User reference field config.
+ */
+function nodeaccess_userreference_form_field_ui_field_edit_form_submit($form, &$form_state) {
+  $data = &$form_state['values']['field']['settings']['nodeaccess_userreference'];
+  $field_name = &$form_state['values']['instance']['field_name'];
+  $bundle_name = &$form_state['values']['instance']['bundle'];
+  nodeaccess_userreference_field_settings($bundle_name, $field_name, $data);
+  $nodes = node_load_multiple(NULL, array('type' => $bundle_name));
+  if ($nodes) {
+    // Because the field settings have changed we should prompt for a full rebuild.
+    node_access_needs_rebuild(TRUE);
+  }
+}
+
+/**
+ * Add node grants in a way that prevents overriding previous iterations.
+ *
+ * @param &$grants
+ *  The grants array where the grant will be added.
+ * @param $realm
+ *  The realm of this grant.
+ * @param $gid
+ *  The grant ID.
+ * @param $priority
+ *  The grant priority.
+ * @param $settings
+ *  An settings array of boolean equivalent values with keys 'view', 'edit',
+ *  and 'delete'.
+ */
+function nodeaccess_userreference_add_grant(&$grants, $realm, $gid, $priority, $settings) {
+  $key = $realm . $gid;
+  if (!isset($grants[$key])) {
+    // Setup the record.
+    $grants[$key] = array(
+      'realm' => $realm,
+      'gid' => $gid,
+      'priority' => $priority,
+      'grant_view' => 0,
+      'grant_update' => 0,
+      'grant_delete' => 0,
+    );
+  }
+  // Add the grants needed, so as not to override previous iterations.
+  if (isset($settings['view']) && $settings['view']) {
+    $grants[$key]['grant_view'] = 1;
+  }
+  if (isset($settings['update']) && $settings['update']) {
+    $grants[$key]['grant_update'] = 1;
+  }
+  if (isset($settings['delete']) && $settings['delete']) {
+    $grants[$key]['grant_delete'] = 1;
+  }
+}
+
+/**
+ * Implements hook_node_access_records().
+ */
+function nodeaccess_userreference_node_access_records($node) {
+  $grants = array();
+  $bundles = field_info_instances('node');
+  foreach ($bundles as $bundle_name => $fields) {
+    foreach ($fields as $field) {
+      if ($field['display']['default']['module'] == 'user_reference') {
+        $data = nodeaccess_userreference_field_settings($bundle_name, $field['field_name']);
+        if (!empty($data) && !empty($node->$field['field_name'])) {
+          // Add referenced user grants.
+          foreach ((array) $node->$field['field_name'] as $language) {
+            foreach ($language as $userreference) {
+              if ($userreference['uid']) {
+                nodeaccess_userreference_add_grant(
+                  $grants,
+                  'nodeaccess_userreference',
+                  $userreference['uid'],
+                  $data['priority'],
+                  $data['referenced']
+                );
+              }
+            }
+          }
+          // Add author grants.
+          nodeaccess_userreference_add_grant(
+            $grants,
+            'nodeaccess_userreference_author',
+            $node->uid,
+            $data['priority'],
+            $data['author']
+          );
+          // Add all grants.
+          nodeaccess_userreference_add_grant(
+            $grants,
+            'nodeaccess_userreference_all',
+            1,
+            $data['priority'],
+            $data['all']
+          );
+        }
+      }
+    }
+  }
+  if (!empty($grants)) {
+    return $grants;
+  }
+  return NULL;
+}
+
+/**
+ * Set and get nodeaccess userreference field settings.
+ *
+ * @param $bundle_name
+ *   The name of the bundle.
+ * @param $field_name
+ *   The name of the field.
+ * @param $variable
+ *   If set will update the value of the settings for this field.
+ * @return
+ *   The stored or updated value of the settings for this field.
+ */
+function nodeaccess_userreference_field_settings($bundle_name, $field_name, $variable = NULL) {
+  $data = variable_get('nodeaccess_userreference', NULL);
+  if (isset($variable)) {
+    $data[$bundle_name][$field_name] = $variable;
+    variable_set('nodeaccess_userreference', $data);
+  }
+  if (isset($data[$bundle_name][$field_name])) {
+    return $data[$bundle_name][$field_name];
+  }
+}
+
+/**
+ * Implements hook_node_access_explain().
+ *
+ * This gives the Devel module nice information to display when
+ * debugging node grants.
+ */
+function nodeaccess_userreference_node_access_explain($row) {
+  if (
+    in_array(
+      $row->realm,
+      array(
+        'nodeaccess_userreference',
+        'nodeaccess_userreference_author',
+        'nodeaccess_userreference_all'
+      )
+    )
+  ) {
+
+    foreach (array('view', 'update', 'delete') as $op) {
+      $gop = 'grant_' . $op;
+      if (!empty($row->$gop)) {
+        $ops[] = $op;
+      }
+    }
+
+    $do = implode('/', $ops);
+
+    switch ($row->realm) {
+      case 'nodeaccess_userreference':
+        $account = user_load(array('uid' => $row->gid));
+        return t('Referenced user %name may !do this node', array('%name' => $account->name, '!do' => $do));
+      case 'nodeaccess_userreference_author':
+        $account = user_load(array('uid' => $row->gid));
+        return t('Node author %name may !do this node', array('%name' => $account->name, '!do' => $do));
+      case 'nodeaccess_userreference_all':
+        return t('All users may !do this node', array('!do' => $do));
+    }
+  }
+}
+

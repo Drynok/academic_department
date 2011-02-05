@@ -1,0 +1,306 @@
+<?php
+// $Id: nodeaccess_nodereference.module,v 1.1.2.22.2.14 2011/01/26 09:32:39 danielb Exp $
+
+/**
+ * @file
+ * The Node access node reference module.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function nodeaccess_nodereference_menu() {
+  $items = array();
+
+  $items['admin/config/people/nodeaccess_nodereference'] = array(
+    'title' => 'Node access node reference',
+    'description' => 'Configure Node access node reference.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodeaccess_nodereference_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * System settings form for nodeaccess_nodereference.
+ */
+function nodeaccess_nodereference_admin_settings($form, &$form_state) {
+  $form['nodeaccess_nodereference_priority'] = array(
+    '#type' => 'weight',
+    '#title' => t('Set node grants priority for Node access node reference'),
+    '#default_value' => variable_get('nodeaccess_nodereference_priority', 0),
+    '#description' => t('If this is the only node access module you are using, you can safely ignore this.
+    If you are using multiple node access modules you can adjust the priority of this module.'),
+  );
+  $form['nodeaccess_nodereference_author_view'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant <em>view</em> access to node authors'),
+    '#default_value' => variable_get('nodeaccess_nodereference_author_view', 1),
+    '#description' => t('Grants <em>view</em> access to authors.  Use this if not using other node access modules to set author access.'),
+  );
+  $form['nodeaccess_nodereference_author_update'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant <em>edit</em> access to node authors'),
+    '#default_value' => variable_get('nodeaccess_nodereference_author_update', 1),
+    '#description' => t('Grants <em>edit</em> access to authors.  Use this if not using other node access modules to set author access.'),
+  );
+  $form['nodeaccess_nodereference_author_delete'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant <em>delete</em> access to node authors'),
+    '#default_value' => variable_get('nodeaccess_nodereference_author_delete', 1),
+    '#description' => t('Grants <em>delete</em> access to authors.  Use this if not using other node access modules to set author access.'),
+  );
+
+  // Add additional submit processing
+  $form['#submit'][] = 'nodeaccess_userreference_admin_settings_submit';
+
+  return system_settings_form($form);
+}
+
+/**
+ * Submit function for the system settings form for nodeaccess_nodereference.
+ */
+function nodeaccess_nodereference_admin_settings_submit($form, &$form_state) {
+  node_access_needs_rebuild(TRUE);
+}
+
+/**
+ * Implements hook_node_grants().
+ */
+function nodeaccess_nodereference_node_grants($account, $op) {
+  static $grants = array();
+  if (!isset($grants[$account->uid][$op])) {
+    if (variable_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
+      // Clear the cache.
+      cache_clear_all('nodeaccess_nodereference', 'cache', TRUE);
+      variable_del('nodeaccess_nodereference_cache_needs_clear');
+      $cached_grants = NULL;
+    }
+    else {
+      $cached_grants = cache_get('nodeaccess_nodereference_' . $account->uid . '_' . $op);
+    }
+    if (empty($cached_grants)) {
+      $grants[$account->uid][$op] = array();
+      $references = nodeaccess_nodereference_get_referenced();
+      foreach ($references as $reference) {
+        $reference_node = node_load($reference);
+        if (!empty($reference_node) && node_access($op, $reference_node, $account)) {
+          $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $reference;
+        }
+      }
+      if (isset($grants[$account->uid][$op]['nodeaccess_nodereference'])) {
+        $grants[$account->uid][$op]['nodeaccess_nodereference_author'][] = $account->uid;
+        cache_set('nodeaccess_nodereference_' . $account->uid . '_' . $op, $grants[$account->uid][$op]);
+      }
+    }
+    else {
+      $grants[$account->uid][$op] = $cached_grants->data;
+    }
+  }
+  return $grants[$account->uid][$op];
+}
+
+/**
+ * Get all referenced nodes that are referenced in a Node access node reference
+ * field.
+ */
+function nodeaccess_nodereference_get_referenced() {
+  $references = array();
+  $settings = variable_get('nodeaccess_nodereference', array());
+  foreach ($settings as $type => $fields) {
+    foreach ($fields as $field => $data) {
+      if (($data['view'] || $data['update'] || $data['delete'])) {
+        $result = db_query("SELECT " . $field . "_nid AS reference FROM {field_data_" . $field . "}");
+        foreach ($result as $row) {
+          $references[$row['reference']] = $row->reference;
+        }
+      }
+    }
+  }
+  return $references;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $form_state) {
+  if ($form['#field']['type'] == 'node_reference') {
+
+    $data = nodeaccess_nodereference_field_settings($form['#field']['field_name']);
+
+    $form['field']['settings']['nodeaccess_nodereference'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Node access node reference'),
+    );
+
+    $form['field']['settings']['nodeaccess_nodereference']['view'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Pass on <em>view</em> node access'),
+      '#default_value' => $data['view'],
+      '#description' => t('View access on this node will be given if the user has access to one of the referenced nodes.'),
+    );
+
+    $form['field']['settings']['nodeaccess_nodereference']['update'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Pass on <em>edit</em> node access'),
+      '#default_value' => $data['update'],
+      '#description' => t('Edit access on this node will be given if the user has access to one of the referenced nodes.'),
+    );
+
+    $form['field']['settings']['nodeaccess_nodereference']['delete'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Pass on <em>delete</em> node access'),
+      '#default_value' => $data['delete'],
+      '#description' => t('Delete access on this node will be given if the user has access to one of the referenced nodes.'),
+    );
+
+    $form['#submit'][] = 'nodeaccess_nodereference_form_field_ui_field_edit_form_submit';
+
+  }
+}
+
+/**
+ * Extra submit function for Node reference field config.
+ */
+function nodeaccess_nodereference_form_field_ui_field_edit_form_submit($form, &$form_state) {
+  $data = &$form_state['values']['field']['settings']['nodeaccess_nodereference'];
+  $field_name = &$form_state['values']['instance']['field_name'];
+  nodeaccess_nodereference_field_settings($field_name, $data);
+  $type = &$form_state['values']['instance']['bundle'];
+  $nodes = node_load_multiple(NULL, array('type' => $type));
+  if ($nodes) {
+    // Because the field settings have changed we should prompt for a full rebuild.
+    node_access_needs_rebuild(TRUE);
+  }
+}
+
+/**
+ * Implements hook_node_access_records().
+ */
+function nodeaccess_nodereference_node_access_records($node) {
+  $grants = array();
+  $bundles = field_info_instances('node');
+  $priority = variable_get('nodeaccess_nodereference_priority', 0);
+
+  foreach ($bundles as $fields) {
+    foreach ($fields as $field) {
+      if ($field['display']['default']['module'] == 'node_reference') {
+        $data = nodeaccess_nodereference_field_settings($field['field_name']);
+        if (!empty($data) && !empty($node->$field['field_name'])) {
+          if (($data['view'] || $data['update'] || $data['delete'])) {
+            foreach ((array)$node->$field['field_name'] as $language) {
+              foreach ($language as $nodereference) {
+                if ($reference = node_load($nodereference['nid'])) {
+                  $nid = $reference->nid;
+                  if (!isset($grants[$nid])) {
+                    // Setup the record.
+                    $grants[$nid] = array(
+                      'realm' => 'nodeaccess_nodereference',
+                      'gid' => $nid,
+                      'priority' => $priority,
+                      'grant_view' => 0,
+                      'grant_update' => 0,
+                      'grant_delete' => 0,
+                    );
+                  }
+                  // Add the grants needed, so as not to override previous iterations.
+                  if ($data['view']) {
+                    $grants[$nid]['grant_view'] = 1;
+                  }
+                  if ($data['update']) {
+                    $grants[$nid]['grant_update'] = 1;
+                  }
+                  if ($data['delete']) {
+                    $grants[$nid]['grant_delete'] = 1;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Flag that the cache is not to be relied upon.
+  variable_set('nodeaccess_nodereference_cache_needs_clear', TRUE);
+
+  if (!empty($grants)) {
+    // Store author grants according to configuration.
+    $grant_view = variable_get('nodeaccess_nodereference_author_view', 1);
+    $grant_update = variable_get('nodeaccess_nodereference_author_update', 1);
+    $grant_delete = variable_get('nodeaccess_nodereference_author_delete', 1);
+    if ($grant_view || $grant_update || $grant_delete) {
+      $grants[] = array(
+        'realm' => 'nodeaccess_nodereference_author',
+        'gid' => $node->uid,
+        'priority' => $priority,
+        'grant_view' => $grant_view,
+        'grant_update' => $grant_update,
+        'grant_delete' => $grant_delete,
+      );
+    }
+
+    return $grants;
+  }
+  return NULL;
+}
+
+/**
+ * Set and get nodeaccess nodereference field settings.
+ *
+ * @param $field_name
+ *   The name of the field.
+ * @param $variable
+ *   If set will update the value of the settings for this field.
+ * @return
+ *   The stored or updated value of the settings for this field.
+ */
+function nodeaccess_nodereference_field_settings($field_name, $variable = NULL) {
+  $data = variable_get('nodeaccess_nodereference', array());
+  if (isset($variable)) {
+    $data[$field_name] = $variable;
+    variable_set('nodeaccess_nodereference', $data);
+  }
+  if (isset($data[$field_name])) {
+    return $data[$field_name];
+  }
+}
+
+/**
+ * Implements of hook_node_access_explain().
+ *
+ * This gives the Devel module nice information to display when
+ * debugging node grants.
+ */
+function nodeaccess_nodereference_node_access_explain($row) {
+  if (in_array($row->realm, array('nodeaccess_nodereference', 'nodeaccess_nodereference_author'))) {
+    foreach (array('view', 'update', 'delete') as $op) {
+      $gop = 'grant_' . $op;
+      if (!empty($row->$gop)) {
+        $ops[] = $op;
+      }
+    }
+
+    $do = implode('/', $ops);
+
+    switch ($row->realm) {
+      case 'nodeaccess_nodereference':
+        $reference = node_load($row->gid);
+        return t(
+          'Users that may !do referenced node %node may !do this node',
+          array('%node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
+        );
+      case 'nodeaccess_nodereference_author':
+        $account = user_load($row->gid);
+        return t(
+          'Node author %name may !do this node',
+          array('%name' => $account->name, '!do' => $do)
+        );
+    }
+  }
+}
+

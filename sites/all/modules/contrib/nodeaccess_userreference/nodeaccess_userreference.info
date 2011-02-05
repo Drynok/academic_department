@@ -1,0 +1,12 @@
+; $Id: nodeaccess_userreference.info,v 1.1.2.2.2.2.2.1.2.1 2011/01/31 12:33:44 danielb Exp $
+name = Node access user reference
+description = Provides node access through User reference fields.
+core = 7.x
+package = "CCK"
+dependencies[] = user_reference
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "7.x-3.0-rc4"
+core = "7.x"
+project = "nodeaccess_userreference"
+datestamp = "1296477412"
+

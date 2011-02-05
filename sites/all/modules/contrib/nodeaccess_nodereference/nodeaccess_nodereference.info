@@ -1,0 +1,11 @@
+; $Id: nodeaccess_nodereference.info,v 1.1.2.2.2.3 2011/01/08 14:14:26 danielb Exp $
+name = Node access node reference
+description = Provides per node access control with CCK Node reference fields.
+core = 7.x
+dependencies[] = node_reference
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "7.x-1.2"
+core = "7.x"
+project = "nodeaccess_nodereference"
+datestamp = "1296034464"
+

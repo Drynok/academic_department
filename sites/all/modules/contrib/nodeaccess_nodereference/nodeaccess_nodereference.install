@@ -1,0 +1,20 @@
+<?php
+// $Id: nodeaccess_nodereference.install,v 1.1.2.7.2.3 2011/01/08 14:14:26 danielb Exp $
+
+/**
+ * @file
+ * The Node access node reference install file.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function nodeaccess_nodereference_uninstall() {
+  // Remove variables.
+  variable_del('nodeaccess_nodereference');
+  variable_del('nodeaccess_nodereference_priority');
+  variable_del('nodeaccess_nodereference_author_view');
+  variable_del('nodeaccess_nodereference_author_update');
+  variable_del('nodeaccess_nodereference_author_delete');
+  variable_del('nodeaccess_nodereference_cache_needs_clear');
+}

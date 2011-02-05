@@ -1,0 +1,23 @@
+; $Id: apply_for_role.info,v 1.6.4.4 2011/01/16 13:04:32 sorenjones Exp $
+name = Apply for role
+description = Allows users to apply for roles.
+package = User management
+core = 7.x
+php = 5.2
+files[] = apply_for_role.module
+; Handlers
+files[] = views/handlers/apply_for_role_views_handler_field_application_link.inc
+files[] = views/handlers/apply_for_role_views_handler_field_application_link_approve.inc
+files[] = views/handlers/apply_for_role_views_handler_field_application_link_delete.inc
+files[] = views/handlers/apply_for_role_views_handler_field_application_link_deny.inc
+files[] = views/handlers/apply_for_role_views_handler_field_role_name.inc
+files[] = views/handlers/apply_for_role_views_handler_field_status_name.inc
+files[] = views/handlers/apply_for_role_views_handler_field_user_name.inc
+files[] = views/handlers/apply_for_role_views_handler_field_user_roles.inc
+
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "7.x-1.0-beta7"
+core = "7.x"
+project = "apply_for_role"
+datestamp = "1296117274"
+
