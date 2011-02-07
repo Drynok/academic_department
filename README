@@ -1,1 +1,10 @@
-Academic Department is Drupal 7 subproject which will be a basis to Drupal Academic Department Profile
+Academic Department is Drupal 7 subproject which will be a basis for building Drupal Academic Department Profile.
+
+It is in active development now. To install it, use this way:
+
+1) Navigate to Academic Department installation path
+2) You will be prompted to install Drupal
+3) After installation enable Backup and Migrate module
+4) Restore last database backup using Backup and Migrate module (admin/config/system/backup_migrate/destination)
+
+If you want to take part in the development of this project, please contact me, because we need to set the way of database synchronization. I appreciate professional web design contribution.
