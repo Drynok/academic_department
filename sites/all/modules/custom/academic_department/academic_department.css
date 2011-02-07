@@ -1,0 +1,84 @@
+/* User profile styling */
+
+div.user-profile div.group-left {
+  float: left !important;
+  min-width: 70%;
+  width: auto !important;
+}
+
+div.user-profile div.group-right {
+  width: auto !important;
+}
+
+div.user-profile div.group-footer {
+  padding: 1px 0 0 0;
+}
+
+/* Project Styling */
+div.node.node-project div.group-left {
+  float: left !important;
+  width: 32% !important;
+}
+
+div.node.node-project div.group-right {
+  float: left !important;
+  width: 68% !important;
+}
+
+div.node.node-project div.group-footer {
+  padding: 10px 0 0 0;
+}
+
+/* Term Reference Styling */
+div.user-profile div.field-type-taxonomy-term-reference,
+div.node.node-project div.field-type-taxonomy-term-reference,
+div.node.node-academic-paper div.field-type-taxonomy-term-reference {
+  font-family: Georgia,"Times New Roman",Times,serif;
+  margin: 0;
+}
+
+div.user-profile div.field-type-taxonomy-term-reference h3,
+div.node.node-project div.field-type-taxonomy-term-reference h3,
+div.node.node-academic-paper div.field-type-taxonomy-term-reference h3 {
+  font-weight: bold;
+  font-size: 1em;
+}
+
+div.user-profile div.field-type-taxonomy-term-reference ul,
+div.node.node-project div.field-type-taxonomy-term-reference ul,
+div.node.node-academic-paper div.field-type-taxonomy-term-reference ul {
+  font-size: 1em;
+}
+
+div.user-profile div.field-type-taxonomy-term-reference ul li,
+div.node.node-project div.field-type-taxonomy-term-reference ul li,
+div.node.node-academic-paper div.field-type-taxonomy-term-reference ul li {
+  font-family: Georgia,"Times New Roman",Times,serif;
+  padding: 0 4px 0 0;
+}
+
+div.user-profile div.field-type-taxonomy-term-reference li:after,
+div.node.node-project div.field-type-taxonomy-term-reference li:after,
+div.node.node-academic-paper div.field-type-taxonomy-term-reference li:after {
+  content: ",";
+}
+
+div.user-profile div.field-type-taxonomy-term-reference li:last-child:after,
+div.node.node-project div.field-type-taxonomy-term-reference li:last-child:after,
+div.node.node-academic-paper div.field-type-taxonomy-term-reference li:last-child:after {
+  content: "";
+}
+
+/* Reference Field styling */
+div.field.field-type-user-reference div.field-items div.field-item {
+  float: left;
+  padding: 0 4px 0 0;
+}
+
+div.field.field-type-user-reference div.field-items div.field-item:after {
+  content: ",";
+}
+
+div.field.field-type-user-reference div.field-items div.field-item:last-child:after {
+  content: "";
+}

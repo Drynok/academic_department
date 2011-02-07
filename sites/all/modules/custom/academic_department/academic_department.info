@@ -1,0 +1,6 @@
+; $Id: mollom.info,v 1.6 2010/09/13 00:17:24 dries Exp $
+name = Academic Department
+description = Academic Department Custom Module
+core = 7.x
+stylesheets[all][] = academic_department.css
+files[] = academic_department.module
